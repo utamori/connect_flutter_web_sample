@@ -3,9 +3,49 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:front/gen/greet/v1/greet.pb.dart';
 import 'package:http/http.dart';
+import 'package:protobuf/protobuf.dart';
 
 void main() {
   runApp(const MainApp());
+}
+
+class MyClient implements RpcClient {
+  MyClient();
+  final client = Client();
+
+  final port = 8888;
+  final host = 'localhost';
+
+  @override
+  Future<T> invoke<T extends GeneratedMessage>(
+    ClientContext? ctx,
+    String serviceName,
+    String methodName,
+    GeneratedMessage request,
+    T emptyResponse,
+  ) async {
+    final response = await client.post(
+      Uri.http(
+        '$host:$port',
+        '/$serviceName/$methodName',
+      ),
+      body: jsonEncode(request.toProto3Json()),
+      headers: {'Content-Type': 'application/json'},
+    );
+
+    return emptyResponse..mergeFromProto3Json(jsonDecode(response.body));
+  }
+}
+
+/// The auto-generated GreetServiceApi has no package name information, so create your own instead.
+class ConnectGreetServiceApi {
+  RpcClient _client;
+  ConnectGreetServiceApi(this._client);
+  String _serviceName = 'greet.v1.GreetService';
+
+  Future<GreetResponse> greet(ClientContext? ctx, GreetRequest request) =>
+      _client.invoke<GreetResponse>(
+          ctx, _serviceName, 'Greet', request, GreetResponse());
 }
 
 class MainApp extends StatelessWidget {
@@ -30,25 +70,17 @@ class MainApp extends StatelessWidget {
                   try {
                     print("onSubmitted");
 
-                    final client = Client();
+                    final client = MyClient();
 
                     final request = GreetRequest(name: value);
 
-                    final response = await client.post(
-                      Uri.http(
-                        'localhost:8888',
-                        '/greet.v1.GreetService/Greet',
-                      ),
-                      body: jsonEncode(request.toProto3Json()),
-                      headers: {'Content-Type': 'application/json'},
-                    );
+                    final stub = ConnectGreetServiceApi(client);
 
-                    final decodedResponse = GreetResponse()
-                      ..mergeFromProto3Json(jsonDecode(response.body));
+                    final response = await stub.greet(ClientContext(), request);
 
                     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                         content: Text(
-                      decodedResponse.greeting,
+                      response.greeting,
                       textAlign: TextAlign.center,
                     )));
                   } catch (e) {
