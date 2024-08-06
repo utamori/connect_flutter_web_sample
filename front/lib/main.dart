@@ -32,15 +32,18 @@ class MainApp extends StatelessWidget {
 
                     final client = Client();
 
+                    final request = GreetRequest(name: value);
+
                     final response = await client.post(
                       Uri.http(
                         'localhost:8888',
                         '/greet.v1.GreetService/Greet',
                       ),
-                      body: jsonEncode({'name': value}),
+                      body: jsonEncode(request.toProto3Json()),
                       headers: {'Content-Type': 'application/json'},
                     );
-                    final decodedResponse = GreetResponse.create()
+
+                    final decodedResponse = GreetResponse()
                       ..mergeFromProto3Json(jsonDecode(response.body));
 
                     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
